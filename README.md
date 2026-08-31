@@ -1,10 +1,78 @@
-# TakeMeter: Discourse Classification in r/Games
+# TakeMeter
 
-## Community Choice and Reasoning
+**TakeMeter** is an NLP text-classification project that analyzes discourse patterns in Reddit's r/Games community.
 
-I selected r/Games because it is one of the largest gaming discussion communities on Reddit and contains a wide variety of discourse styles. Users regularly post game announcements, industry news, reviews, critiques, and discussion topics.
+The project compares two approaches for classifying gaming posts into four categories:
 
-After reviewing approximately 40 posts from the community, I found that most content naturally fell into one of four recurring communication styles. This made r/Games a strong candidate for a classification task because the distinctions are meaningful to community members and frequently appear in everyday discussions.
+* **Announcement**
+* **Industry News**
+* **Review / Critique**
+* **Discussion**
+
+I manually created and labeled a balanced dataset of **200 r/Games examples**, fine-tuned DistilBERT on the dataset, and compared its performance against a zero-shot Llama 3.3 70B baseline.
+
+The experiment produced an unexpected result: the zero-shot LLM significantly outperformed the fine-tuned DistilBERT model. Rather than treating that as a failed project, I used the result to investigate dataset size, label overlap, classification errors, and the limitations of fine-tuning on small datasets.
+
+---
+
+## Project Goals
+
+TakeMeter explores several practical NLP questions:
+
+* Can a small transformer learn discourse categories from a manually labeled community-specific dataset?
+* How does a fine-tuned DistilBERT model compare with a large zero-shot LLM?
+* Which discourse categories are easiest or hardest to distinguish?
+* How does annotation design affect downstream model performance?
+* What can confusion matrices and incorrect predictions reveal about model behavior?
+
+---
+
+## Technologies
+
+* Python
+* Hugging Face Transformers
+* DistilBERT
+* Groq API
+* Llama 3.3 70B
+* Google Colab
+* PyTorch
+* Pandas
+* scikit-learn
+* CSV / JSON
+
+---
+
+## Dataset
+
+The dataset was manually collected from public r/Games posts and discussion threads.
+
+It contains **200 labeled examples**.
+
+Each row contains:
+
+```text
+text,label,notes
+```
+
+* `text` — post title or summary
+* `label` — assigned discourse category
+* `notes` — explanation for the classification decision
+
+The complete dataset is available in:
+
+[`rgames_labeled_posts.csv`](./rgames_labeled_posts.csv)
+
+### Label Distribution
+
+| Label           | Examples |
+| --------------- | -------: |
+| Announcement    |       50 |
+| Industry_News   |       50 |
+| Review_Critique |       50 |
+| Discussion      |       50 |
+| **Total**       |  **200** |
+
+The dataset was deliberately balanced so that no category would dominate the training data.
 
 ---
 
@@ -12,273 +80,506 @@ After reviewing approximately 40 posts from the community, I found that most con
 
 ### Announcement
 
-**Definition:** Posts primarily intended to announce a new game, update, trailer, release date, expansion, or event.
+Posts whose primary purpose is announcing or revealing new content.
 
-**Examples:**
+Examples include:
 
-* Persona 4 Revival Gameplay Broadcast showcases new gameplay and soundtrack updates.
-* Garfield: Escape from Monday Official Announcement Trailer reveals a new Garfield platformer release.
+* Game announcements
+* Trailers
+* Release dates
+* DLC
+* Updates
+* Seasons
+* Showcases
+* Launches
 
-### Industry_News
+Example:
 
-**Definition:** Posts reporting factual information about the gaming industry, companies, developers, business decisions, legal actions, technology, or market trends.
+> Garfield: Escape from Monday Official Announcement Trailer reveals a new Garfield platformer release.
 
-**Examples:**
+---
 
-* Nintendo suing the U.S. government over tariffs affecting its business operations.
-* Epic introduces a major Unreal Engine 5 update that improves Lumen performance and can run up to twice as fast on Nintendo Switch 2.
+### Industry News
 
-### Review_Critique
+Posts primarily reporting factual information about the gaming industry.
 
-**Definition:** Posts evaluating, reviewing, critiquing, or analyzing a game, feature, mechanic, or design decision.
+Examples include:
 
-**Examples:**
+* Company decisions
+* Studio closures
+* Layoffs
+* Business results
+* Legal disputes
+* Hardware developments
+* Technology
+* Developer interviews
+* Labor issues
+* Market trends
 
-* High on Life 2 Review Thread.
-* Tomodachi Life: Living the Dream Review Thread.
+Example:
+
+> Nintendo suing the U.S. government over tariffs affecting its business operations.
+
+---
+
+### Review / Critique
+
+Posts focused on evaluating games, mechanics, design choices, or player experiences.
+
+Examples include:
+
+* Review threads
+* Retrospectives
+* Long-form criticism
+* Gameplay analysis
+* Player impressions
+* Performance analysis
+
+Example:
+
+> Bloodborne commentary analyzing boss design, progression, difficulty, storytelling, and gameplay systems.
+
+---
 
 ### Discussion
 
-**Definition:** Posts centered on community conversation, recommendations, opinions, questions, or debate.
+Posts centered on community interaction rather than reporting or formal evaluation.
 
-**Examples:**
+Examples include:
 
-* Best traveling NPCs and merchants in video games.
-* Can anyone recommend turn-based tactics games similar to XCOM that are not too difficult?
+* Questions
+* Recommendations
+* Opinions
+* Debates
+* Genre discussions
+* Gaming culture
+* Personal experiences
 
----
+Example:
 
-## Data Collection and Labeling Process
-
-Data was collected from public posts and discussion threads within r/Games.
-
-The final dataset contains 200 manually labeled examples. Each example was reviewed and assigned one of four labels: Announcement, Industry_News, Review_Critique, or Discussion.
-
-The dataset was intentionally balanced to reduce class imbalance during training.
-
-### Label Distribution
-
-| Label           | Count |
-| --------------- | ----- |
-| Announcement    | 50    |
-| Industry_News   | 50    |
-| Review_Critique | 50    |
-| Discussion      | 50    |
-
-### Dataset File
-
-The labeled dataset is included in this repository as:
-
-`rgames_labeled_posts.csv`
+> Can anyone recommend turn-based tactics games similar to XCOM that are not too difficult?
 
 ---
 
-## Difficult-to-Label Examples
+## Annotation Challenges
 
-### Example 1
+One of the most difficult parts of the project was defining categories that were meaningful while remaining distinct enough for classification.
 
-**Text:** The Steam Next Fest June 2026 Edition is live, with players sharing impressions and recommendations from new game demos.
+### Discussion vs. Review / Critique
 
-**Potential Labels:** Discussion or Review_Critique
+A community thread can contain detailed opinions about a game without necessarily being a formal review.
 
-**Final Label:** Discussion
+My rule was:
 
-**Reasoning:** The focus is on community conversation and recommendations rather than a formal review or critique.
+* General conversation, recommendations, or debate → **Discussion**
+* Content primarily evaluating strengths and weaknesses → **Review_Critique**
 
-### Example 2
+### Industry News vs. Discussion
 
-**Text:** Hideo Kojima disappointed with the state of the industry, believing the most interesting work is happening among indies while big budget studios are producing safe projects.
+Industry events frequently generate community debate.
 
-**Potential Labels:** Industry_News or Review_Critique
+My rule was:
 
-**Final Label:** Industry_News
+* Primarily reports an event, business decision, technical development, or company action → **Industry_News**
+* Primarily framed around opinion or open-ended debate → **Discussion**
 
-**Reasoning:** The post reports comments made by a major industry figure rather than presenting the author's own critique.
+### Announcement vs. Review / Critique
 
-### Example 3
+Trailer posts often contain comments judging the game.
 
-**Text:** PlayStation first-party game sales declining heavily since 2020.
+My rule was:
 
-**Potential Labels:** Industry_News or Discussion
+* The primary purpose of the post is a reveal, launch, update, or trailer → **Announcement**
 
-**Final Label:** Discussion
-
-**Reasoning:** The post primarily encourages community debate about the topic rather than reporting new information.
+The community reaction does not change the original purpose of the post.
 
 ---
 
-## Fine-Tuning Approach
+## Training Approach
 
-The model was fine-tuned using Hugging Face's DistilBERT model:
+The fine-tuned classifier used:
 
-`distilbert-base-uncased`
+```text
+distilbert-base-uncased
+```
 
-Training was performed in Google Colab using a free T4 GPU.
+Training was performed in Google Colab using a T4 GPU.
 
 ### Dataset Split
 
-* Training Set: 140 examples
-* Validation Set: 30 examples
-* Test Set: 30 examples
+| Split      | Examples |
+| ---------- | -------: |
+| Training   |      140 |
+| Validation |       30 |
+| Test       |       30 |
 
 ### Training Configuration
 
-* Model: distilbert-base-uncased
-* Epochs: 3
-* Learning Rate: 2e-5
-* Batch Size: 16
+| Parameter     | Value                     |
+| ------------- | ------------------------- |
+| Model         | `distilbert-base-uncased` |
+| Epochs        | 3                         |
+| Learning Rate | `2e-5`                    |
+| Batch Size    | 16                        |
 
-These settings were kept at the notebook defaults because the dataset was relatively small.
-
----
-
-## Baseline Description
-
-The baseline model used Groq's `llama-3.3-70b-versatile` in a zero-shot classification setting.
-
-The prompt included definitions for all four labels and instructed the model to return only one label for each post.
-
-The baseline was evaluated on the same test set as the fine-tuned model, allowing for a direct comparison between the two approaches.
+Because the dataset was relatively small, the training configuration remained close to the notebook defaults.
 
 ---
 
-## Demo Video
+## Zero-Shot Baseline
 
-Loom Video: https://www.loom.com/share/22062a609c144d88af94e1554c878d14
+Before evaluating the fine-tuned model, I created a zero-shot baseline using:
 
-# Evaluation Report
+```text
+llama-3.3-70b-versatile
+```
 
-## Results Comparison
+through the Groq API.
 
-| Model                                   | Accuracy |
-| --------------------------------------- | -------- |
-| Zero-shot Baseline (Groq Llama 3.3 70B) | 80.0%    |
-| Fine-tuned DistilBERT                   | 53.3%    |
+The prompt provided:
 
-The zero-shot baseline outperformed the fine-tuned DistilBERT model by 26.7 percentage points. While I expected fine-tuning to improve performance, the relatively small dataset and overlap between labels likely made it difficult for DistilBERT to learn reliable decision boundaries.
+* Definitions of all four labels
+* Instructions to classify the post by its primary purpose
+* A requirement to return only one valid category
+
+The baseline and DistilBERT classifier were evaluated on the **same 30-example test set** to make the comparison consistent.
 
 ---
 
-## Per-Class Metrics
+## Results
+
+### Accuracy Comparison
+
+| Model                   |  Accuracy |
+| ----------------------- | --------: |
+| Zero-Shot Llama 3.3 70B | **80.0%** |
+| Fine-Tuned DistilBERT   | **53.3%** |
+
+The zero-shot baseline outperformed the fine-tuned DistilBERT model by **26.7 percentage points**.
+
+The experiment originally assumed that fine-tuning on community-specific examples would improve classification performance.
+
+Instead, the results suggested that **200 examples were not enough for DistilBERT to reliably learn the boundaries between several overlapping discourse categories**.
+
+The raw evaluation summary is also available in:
+
+[`evaluation_results.json`](./evaluation_results.json)
+
+---
+
+## Per-Class Performance
 
 ### Fine-Tuned DistilBERT
 
-| Label           | Precision | Recall | F1-Score |
-| --------------- | --------- | ------ | -------- |
-| Industry_News   | 0.60      | 0.38   | 0.46     |
-| Announcement    | 0.75      | 0.43   | 0.55     |
-| Review_Critique | 0.44      | 0.88   | 0.58     |
-| Discussion      | 0.60      | 0.43   | 0.50     |
+| Label           | Precision | Recall |   F1 |
+| --------------- | --------: | -----: | ---: |
+| Industry_News   |      0.60 |   0.38 | 0.46 |
+| Announcement    |      0.75 |   0.43 | 0.55 |
+| Review_Critique |      0.44 |   0.88 | 0.58 |
+| Discussion      |      0.60 |   0.43 | 0.50 |
 
 ### Zero-Shot Baseline
 
-| Label           | Precision | Recall | F1-Score |
-| --------------- | --------- | ------ | -------- |
-| Industry_News   | 1.00      | 0.75   | 0.86     |
-| Announcement    | 0.78      | 1.00   | 0.88     |
-| Review_Critique | 0.70      | 0.88   | 0.78     |
-| Discussion      | 0.80      | 0.57   | 0.67     |
+| Label           | Precision | Recall |   F1 |
+| --------------- | --------: | -----: | ---: |
+| Industry_News   |      1.00 |   0.75 | 0.86 |
+| Announcement    |      0.78 |   1.00 | 0.88 |
+| Review_Critique |      0.70 |   0.88 | 0.78 |
+| Discussion      |      0.80 |   0.57 | 0.67 |
 
-The baseline model performed better across all categories. The fine-tuned model struggled most with distinguishing Discussion posts from Review_Critique posts.
+The baseline performed better across all four classes.
 
 ---
 
 ## Confusion Matrix
 
-| True \ Predicted | Industry_News | Announcement | Review_Critique | Discussion |
-|------------------|--------------|--------------|-----------------|------------|
-| Industry_News | 5 | 0 | 3 | 0 |
-| Announcement | 0 | 7 | 0 | 0 |
-| Review_Critique | 3 | 0 | 5 | 0 |
-| Discussion | 1 | 0 | 5 | 1 |
-### Analysis
+The fine-tuned DistilBERT confusion matrix was:
 
-The model correctly classified all Announcement posts.
+| True \ Predicted  | Industry News | Announcement | Review / Critique | Discussion |
+| ----------------- | ------------: | -----------: | ----------------: | ---------: |
+| Industry News     |             5 |            0 |                 3 |          0 |
+| Announcement      |             0 |            7 |                 0 |          0 |
+| Review / Critique |             3 |            0 |                 5 |          0 |
+| Discussion        |             1 |            0 |                 5 |          1 |
 
-The largest source of error occurred between Discussion and Review_Critique. Five Discussion posts were incorrectly classified as Review_Critique. This suggests the model associated evaluation language with reviews even when the post was primarily a discussion.
+![Fine-tuned DistilBERT confusion matrix](confustion_matrix.png)
 
-Industry_News was also commonly confused with Review_Critique. News posts containing opinions or statements from developers often resembled review-style language.
+The largest error pattern was the tendency to classify **Discussion** posts as **Review / Critique**.
+
+Five Discussion examples were predicted as Review / Critique.
+
+This suggests that the model learned to associate words related to:
+
+* Gameplay quality
+* Performance
+* Balance
+* Design
+* Optimization
+* Criticism
+
+with the Review / Critique category, even when those words appeared inside open-ended community discussions.
 
 ---
 
-## Analysis of Wrong Predictions
+## Error Analysis
 
-### Example 1
+### Industry News → Discussion
 
-**Text:** Nintendo suing the U.S. government over tariffs affecting its business operations.
+**Example**
 
-**True Label:** Industry_News
+> Nintendo suing the U.S. government over tariffs affecting its business operations.
 
-**Predicted Label:** Discussion
-
+**True label:** Industry_News
+**Predicted:** Discussion
 **Confidence:** 0.27
 
-**Analysis:** This post reports a real business event involving Nintendo and government policy. The model likely interpreted the topic as a community discussion rather than industry reporting because the post is short and lacks obvious news-reporting language.
+The example is clearly about an industry and legal event, but the text is extremely short.
 
-### Example 2
+The model may not have received enough contextual language to recognize the news-reporting purpose of the post.
 
-**Text:** Garfield: Escape from Monday Official Announcement Trailer reveals a new Garfield platformer release.
+---
 
-**True Label:** Announcement
+### Announcement → Review / Critique
 
-**Predicted Label:** Review_Critique
+**Example**
 
+> Garfield: Escape from Monday Official Announcement Trailer reveals a new Garfield platformer release.
+
+**True label:** Announcement
+**Predicted:** Review_Critique
 **Confidence:** 0.28
 
-**Analysis:** The phrase "Official Announcement Trailer" clearly signals an announcement. The model appears to have focused on the game description rather than the announcement-related wording.
+The phrase **Official Announcement Trailer** strongly signals the correct category.
 
-### Example 3
+The model appears to have focused more heavily on surrounding game-description vocabulary instead of the announcement-related phrase.
 
-**Text:** Players debated whether Planetside 2 should have been delayed, discussing optimization issues, game balance, launch expectations, and the challenges of releasing large-scale online games.
+---
 
-**True Label:** Discussion
+### Discussion → Review / Critique
 
-**Predicted Label:** Review_Critique
+**Example**
 
+> Players debated whether Planetside 2 should have been delayed, discussing optimization issues, game balance, launch expectations, and the challenges of releasing large-scale online games.
+
+**True label:** Discussion
+**Predicted:** Review_Critique
 **Confidence:** 0.26
 
-**Analysis:** This post focuses on community discussion and debate. However, because it mentions optimization, balance, and quality concerns, the model incorrectly associated it with Review_Critique.
+Terms such as *optimization*, *balance*, and *quality* resemble language used in reviews.
+
+However, the primary purpose of the example is community debate rather than evaluating the game as a formal critique.
 
 ---
 
-## Sample Classifications
+## What the Model Learned vs. What I Intended
 
-| Example Text                                                                        | Predicted Label | Confidence |
-| ----------------------------------------------------------------------------------- | --------------- | ---------- |
-| Persona 4 Revival Gameplay Broadcast showcases new gameplay and soundtrack updates. | Announcement    | High       |
-| Nintendo suing the U.S. government over tariffs affecting its business operations.  | Discussion      | 0.27       |
-| Players debated whether Planetside 2 should have been delayed.                      | Review_Critique | 0.26       |
+My goal was for TakeMeter to classify posts according to their **primary communication purpose**.
 
-The first example demonstrates a correct prediction because the post contains clear announcement language related to a gameplay reveal and promotional showcase.
+The fine-tuned model instead appeared to rely heavily on surface-level vocabulary.
+
+For example:
+
+```text
+"review" / "quality" / "balance" / "optimization"
+             ↓
+      Review_Critique
+```
+
+That works for obvious cases, but fails when similar words appear in community discussions or industry reporting.
+
+The hardest distinctions were:
+
+```text
+Discussion ↔ Review_Critique
+
+Industry_News ↔ Review_Critique
+```
+
+Announcement posts were generally easier because they frequently contain strong lexical indicators such as:
+
+```text
+announcement
+trailer
+release
+launch
+showcase
+update
+```
 
 ---
 
-## Reflection: What the Model Learned vs. What I Intended
+## What I Learned
 
-My goal was to classify posts according to their primary discourse style within r/Games.
+The most important result of the project was not the final accuracy score.
 
-The model struggled with all categories to varying degrees, although Announcement remained one of the more recognizable categories. The largest challenge was distinguishing Discussion, Review_Critique, and Industry_News because these categories frequently shared similar vocabulary and topics.
+The experiment demonstrated how heavily NLP performance can depend on:
 
-The results suggest that the model relied heavily on keywords rather than understanding the broader purpose of a post. Additional training examples and clearer distinctions between Discussion and Review_Critique would likely improve performance.
+* Dataset size
+* Annotation consistency
+* Label definitions
+* Semantic overlap between classes
+* Quality of training examples
+* Evaluation methodology
 
-Although the fine-tuned model did not outperform the baseline, the project provided valuable insight into the challenges of dataset design, annotation consistency, and text classification.
+Fine-tuning a model does not automatically guarantee better performance.
 
-# Spec Reflection
+In this experiment, a much larger zero-shot LLM was able to interpret the broader semantic purpose of the posts more effectively than DistilBERT trained on only 140 examples.
 
-The project specification helped guide the overall structure of the project, especially during the dataset collection and evaluation stages. Having clear requirements for label definitions, dataset size, baseline comparison, and error analysis made it easier to organize the workflow and ensure that every stage of the project had a specific purpose.
+The result reinforced the importance of comparing a trained model against a meaningful baseline instead of assuming fine-tuning is automatically an improvement.
 
-One way my implementation differed from the original plan was during data collection. I initially focused on classifying different types of gaming content, but while reviewing r/Games posts I realized that some categories overlapped significantly. As a result, I refined the labels and decision rules throughout the annotation process to better reflect the actual discourse patterns found within the community.
+---
 
-# AI Usage
+## Limitations
 
-## Example 1: Label Design and Planning
+### Small Dataset
 
-I used ChatGPT during the planning phase to help evaluate and refine my label taxonomy. By discussing potential edge cases and ambiguous examples, I was able to create clearer decision rules for distinguishing between Industry_News, Announcement, Review_Critique, and Discussion posts.
+The complete dataset contains only 200 examples, with 140 used for training.
 
-## Example 2: Dataset Review
+This is a very small dataset for transformer fine-tuning and limits the model's ability to learn reliable decision boundaries.
 
-I used ChatGPT to review portions of the dataset and identify examples that were difficult to classify. The AI helped highlight potential overlaps between categories, but all final labeling decisions were made manually after reviewing each example.
+### Small Test Set
 
-## Example 3: Evaluation and Error Analysis
+The reported accuracy is based on only **30 test examples**.
 
-After training the model, I used ChatGPT to help analyze incorrect predictions and identify patterns in the errors. This helped me recognize that the model frequently confused Discussion and Review_Critique posts. The final interpretations and conclusions included in the report were reviewed and written by me.
+The results demonstrate the behavior of this experiment but should not be interpreted as a comprehensive benchmark.
+
+### Overlapping Categories
+
+Discussion, Review / Critique, and Industry News sometimes contain extremely similar vocabulary.
+
+The difference often depends on the **purpose of the post**, which is more difficult for a small fine-tuned model to infer from limited training examples.
+
+### Manual Annotation
+
+Labels were manually assigned using project-specific decision rules.
+
+Although ambiguous examples were reviewed carefully, annotation remains subjective.
+
+### Community-Specific Dataset
+
+The dataset represents discourse from r/Games.
+
+Performance should not be assumed to generalize to other Reddit communities or other kinds of online discussion.
+
+---
+
+## Future Improvements
+
+Potential next steps include:
+
+* Increase the dataset substantially beyond 200 examples
+* Add more borderline examples between commonly confused classes
+* Perform multiple train/test splits
+* Use cross-validation
+* Tune learning rate, epochs, and batch size
+* Evaluate a larger transformer model
+* Compare additional embedding or classical ML baselines
+* Analyze model calibration
+* Add confidence thresholds for uncertain predictions
+* Experiment with merging or redesigning overlapping labels
+* Evaluate performance on posts collected at a later date
+
+A particularly important improvement would be increasing examples for:
+
+```text
+Discussion ↔ Review_Critique
+```
+
+because this was the most common source of model error.
+
+---
+
+## Repository Files
+
+```text
+takemeter/
+├── rgames_labeled_posts.csv   # 200 manually labeled examples
+├── evaluation_results.json    # Experiment summary
+├── confustion_matrix.png      # Fine-tuned model confusion matrix
+├── planning.md                # Taxonomy, annotation rules, and experiment planning
+└── README.md                  # Project documentation
+```
+
+Training and evaluation were performed in Google Colab.
+
+---
+
+## Project Planning
+
+The project was designed before final evaluation around specific performance goals.
+
+The original targets included:
+
+* At least 75% accuracy
+* Macro F1 of at least 0.70
+* No individual class below 0.60 F1
+* Clear separation between all four categories
+
+The fine-tuned model did not reach those targets.
+
+Rather than changing the success criteria after seeing the results, I used the failed hypothesis as the basis for the error analysis and project reflection.
+
+More detail is available in:
+
+[`planning.md`](./planning.md)
+
+---
+
+## AI Usage
+
+AI tools were used as assistants during several stages of the project.
+
+### Label Design
+
+ChatGPT was used to help stress-test the four-label taxonomy and identify examples that could reasonably fall into multiple categories.
+
+This helped refine the decision rules between:
+
+* Industry News and Discussion
+* Discussion and Review / Critique
+* Announcement and Review / Critique
+
+Final label definitions were reviewed and selected manually.
+
+### Dataset Review
+
+AI assisted with reviewing potentially ambiguous examples and formatting some entries.
+
+All examples in the final dataset were manually reviewed before their labels were accepted.
+
+### Error Analysis
+
+After training, AI was used to help identify recurring patterns among incorrect predictions.
+
+The final conclusions were based on the actual evaluation results, confusion matrix, and manual review of the misclassified examples.
+
+AI served as an analysis and development assistant rather than replacing the manual labeling or evaluation process.
+
+---
+
+## Demo
+
+A video walkthrough of the project is available here:
+
+[TakeMeter Demo](https://www.loom.com/share/22062a609c144d88af94e1554c878d14)
+
+---
+
+## Summary
+
+TakeMeter demonstrates an end-to-end NLP experiment involving:
+
+* Dataset design
+* Manual annotation
+* Label taxonomy development
+* Transformer fine-tuning
+* Zero-shot LLM classification
+* Baseline comparison
+* Precision, recall, and F1 evaluation
+* Confusion-matrix analysis
+* Error analysis
+* Model limitation analysis
+
+The fine-tuned DistilBERT classifier achieved **53.3% accuracy**, while the zero-shot Llama 3.3 70B baseline achieved **80.0%** on the same test set.
+
+Although the fine-tuned model did not outperform the baseline, the result provided a useful case study in why dataset quality, dataset size, and label design can matter as much as model selection in applied NLP.
